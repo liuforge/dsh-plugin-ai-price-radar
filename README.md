@@ -1,5 +1,36 @@
 # AI 比价雷达 · DSH 插件
 
+> 本仓库是 [gaoren7716-lab/dsh-plugin-ai-price-radar](https://github.com/gaoren7716-lab/dsh-plugin-ai-price-radar) 的 fork（v1.6.1）。
+> 相对上游只有两处改动，见下方「本 fork 的改动」。
+
+## 本 fork 的改动
+
+### v1.6.1
+
+**1. OpenPrice 采集器适配 2026-11 改版（上游此处返回 0 条）**
+
+openprice.cc 改版后，`/card-products/all` 只返回 `initialCategories`（分类目录，不含报价），
+报价移到各分类页 `/card-products/<slug>`，字段同时更名：
+
+| 上游代码假设 | 站点现状 |
+| --- | --- |
+| `/card-products/all` 一页全量 | 报价在 `/card-products/<slug>` 分类页 |
+| `initialItems` | `initialDetails` |
+| `title` / `shopName` / `updatedAt` | `originalName` / `channel` / `updateTime` |
+| 全量输出 | 每页固定 100 条，`limit`/`offset`/`page`/`per_page` 等参数实测均无效 |
+
+新实现：从 `sitemap.xml` 取 28 个 AI 相关分类 → 6 并发抓分类页 → 解析 Next.js RSC flight 流
+（`self.__next_f.push` 拼接后按括号配对 `JSON.parse`，不再用正则硬匹配转义 JSON）→ 合并去重。
+实测单源 2518 条，全站总报价 4417 → 6934。交付类型按 slug 后缀推断（`*-finished-product` = 成品号，`*-recharge` = 代充），
+避免出现「chatgpt 普通号」这类原样标签污染类型筛选。
+
+**2. 面板改为固定浅色主题**
+
+原来所有颜色都写成 `var(--dsw-alias-*,<深色回退值>)`，宿主不提供这些变量（或宿主是深色主题）时整块面板是黑的。
+现在在 `.radar-page` 上定义一组本地浅色变量（白底 `#ffffff`、浅灰卡片 `#f7f8fa`、深灰字 `#1f2328`），
+所有 `--dsw-alias-*` 引用改为本地变量，并加 `color-scheme: light` 让原生控件也跟着变浅；
+强调色在白底上加深一档（绿 `#15803d`、橙 `#ea580c`、红 `#dc2626`）。
+
 [![Install with DSH](https://img.shields.io/badge/DeepSeek_Harness-plugin-4D6BFE)](https://github.com/deepseek-ai/deepseek-harness)
 
 卡网 AI 订阅**只读比价**面板：把多个公开报价源聚合到 DeepSeek Harness 的一个本地面板里，搜索、四路筛选、直达原始购买链接。**本地运行、只读采集、不参与任何交易。**

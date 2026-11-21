@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-ai-price-radar",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "type": "module",
   "description": "AI 比价雷达：多源采集的卡网 AI 商品报价面板（本地运行 / 只读采集）",
