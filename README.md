@@ -37,6 +37,32 @@ openprice.cc 改版后，`/card-products/all` 只返回 `initialCategories`（�
 
 ![icon](icon.svg)
 
+## 已知问题（v1.6.1）
+
+### 云猫寄售（catfk.com）源当前抓不到
+
+面板里 `catfk` 那行会显示 `failed` / `0 条`。**不是采集器逻辑错误，是上游风控**：
+
+```console
+$ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://catfk.com/shopApi/Shop/goodsList \
+    -H 'Content-Type: application/json' -d '{"page":1,"limit":10}'
+502
+```
+
+`502` 的响应体是个人机验证挑战页（ESA/WAF），不是业务 JSON。换 UA、加 Referer、走 `curl_cffi` 浏览器指纹，
+结果一样是 502。v1.6.0 时该源还能正常返回约 992 条，属于上游近期的策略变化，不是本项目引入的回归。
+
+- **影响面**：只有 catfk 一个源掉线。其余六个源（BiWu / AI价网 / 知途 / PriceAI / AIFeeRadar / OpenPrice）正常，
+  面板总量仍在 6900 条量级，跨源同款比价照常可用。
+- **不要做的**：不要为了它调大重试次数或超时——对风控页重试只会让封禁更久。
+- **恢复路径**：上游放开设防后自动恢复，代码无需改动；若长期不放，只能上浏览器方案
+  （Playwright / 指纹浏览器 + 真实会话换 token），成本明显高于收益，暂不实现。
+- **自检方式**：面板「数据源」统计里看 catfk 是否变绿，或
+
+  ```console
+  $ curl -s 'http://127.0.0.1:<端口>/leida/api/offers' | jq '.sources[] | select(.source=="catfk")'
+  ```
+
 ## 预览
 
 ![AI 比价雷达面板](docs/preview.png)
@@ -116,7 +142,7 @@ dsh plugin --profile <你的profile名> add ./dsh-plugin-ai-price-radar
 | [AI价网](http://aiprice.club) | 解析公开类目报价表 | 数据遵循 [CC BY 4.0](http://aiprice.club)，署名「AI价网 (http://aiprice.club)」 |
 | 链动小铺（wzyp.cn） | 经上述聚合源覆盖 | 不直接抓取（直抓被其 ESA 人机验证拦截） |
 | 水獭（shuifa.xyz） | 未并入 | 2026-11-13 起实测域名不可达；恢复后可按同架构接入 |
-| 云猫寄售（catfk.com） | 公开店铺接口直连（POST /shopApi/Shop/goodsList，逐店实时抓取） | 店铺清单发现自 AI价网公开店铺目录；接口无需鉴权 |
+| 云猫寄售（catfk.com） | 公开店铺接口直连（POST /shopApi/Shop/goodsList，逐店实时抓取）**当前被上游 502 风控拦截，见「已知问题」** | 店铺清单发现自 AI价网公开店铺目录；接口无需鉴权 |
 
 ## 隐私与边界
 
